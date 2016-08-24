@@ -9,8 +9,45 @@
 import UIKit
 import Photos
 
+//相册tableView的cell模型
 class PMGroupModel: NSObject {
-
+	var image:UIImage?
+	var title:String?
+	var content:String?
+	
+	override init() {
+		super.init()
+	}
+	
+	convenience init(image: UIImage?,title: String?,content: String?) {
+		self.init()
+		self.image = image
+		self.title = title
+		self.content = content
+	}
+	
+	class func groupModelFromPHAssetCollection(collection: PHAssetCollection)->PMGroupModel {
+		var image: UIImage? = nil
+		let title = collection.localizedTitle
+		let content = collection.photosCount
+		
+		let assets:PHFetchResult = PHAsset.fetchAssetsInAssetCollection(collection, options: nil)
+		let asset = assets.firstObject as? PHAsset
+		
+		let options = PHImageRequestOptions()
+		options.synchronous = true
+		options.resizeMode = .Fast
+		options.deliveryMode = .FastFormat
+		
+		if let _asset = asset {
+			let size: CGSize = CGSizeMake(150, 150)
+			PHImageManager.defaultManager().requestImageForAsset(_asset, targetSize: size, contentMode: PHImageContentMode.AspectFill, options: options, resultHandler: { (_image: UIImage?, info:[NSObject : AnyObject]?) in
+				image = _image
+			})
+		}
+		let model = PMGroupModel.init(image: image, title: title, content: String(content))
+		return model
+	}
 }
 
 
@@ -21,5 +58,4 @@ extension PHAssetCollection{
 		let result = PHAsset.fetchAssetsInAssetCollection(self, options: fetchOptions);
 		return result.count;
 	}
-	
 }

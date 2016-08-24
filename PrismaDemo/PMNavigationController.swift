@@ -10,13 +10,14 @@ import UIKit
 
 class PMNavigationController: UINavigationController,UIGestureRecognizerDelegate,UINavigationControllerDelegate {
 	
-	var panGestureRecognizer = UIPanGestureRecognizer.init()
-	var frameOrigin = CGPointZero
-	var interactionController : UIPercentDrivenInteractiveTransition?
-	var animator:PushAnimator?
-	var isInteractive:Bool = false
-	var popEdgeInset:CGFloat = 50
-	var completionHandler:((isPush:Bool)->Void)?
+	var panGestureRecognizer: UIPanGestureRecognizer = UIPanGestureRecognizer.init()
+	var frameOrigin: CGPoint = CGPointZero
+	var interactionController: UIPercentDrivenInteractiveTransition?
+	var animator: PushAnimator?
+	var isInteractive: Bool = false
+	var popEdgeInset: CGFloat = 50
+	var completionHandler: ((isPush: Bool)->Void)?
+	
 	
 	override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: NSBundle?) {
 		super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
@@ -30,17 +31,19 @@ class PMNavigationController: UINavigationController,UIGestureRecognizerDelegate
 		super.init(coder: aDecoder)
 	}
 	
-	
-    override func viewDidLoad() {
-        super.viewDidLoad()
-		//禁用系统的pop手势，然后自定义
-        interactivePopGestureRecognizer?.enabled = false
-		delegate = self;
+	override func viewDidLoad() {
+		super.viewDidLoad()
 		
-		panGestureRecognizer.addTarget(self, action: #selector(self.didPan(_:)))
+		interactivePopGestureRecognizer?.enabled = false
+		delegate = self
+		
+		// Add new pan gesture replace the edge gesture
+		panGestureRecognizer.addTarget(self, action: #selector(PMNavigationController.didPan(_:)))
+		panGestureRecognizer.delegate = self
 		view.addGestureRecognizer(panGestureRecognizer)
-    }
+	}
 	
+	// MARK: Change the frame of the default view, under the capture view
 	override func viewDidLayoutSubviews() {
 		var frame = view.frame
 		frame.origin.y = frameOrigin.y
@@ -66,67 +69,84 @@ class PMNavigationController: UINavigationController,UIGestureRecognizerDelegate
 		return super.popViewControllerAnimated(animated)
 	}
 	
-	func pushViewController(viewController:UIViewController, animated:Bool, completion:((isPush: Bool)->Void)?){
+	
+	
+	
+	func pushViewController(viewController: UIViewController, animated: Bool, completion:((isPush: Bool)->Void)?) {
 		completionHandler = completion
 		self.pushViewController(viewController, animated: animated)
 	}
 	
-	func popViewControllerAnimated(animated: Bool, completeion:((isPush: Bool)->Void)?){
-		completionHandler = completeion
-		self.popViewControllerAnimated(animated)
+	
+	func popViewControllerAnimated(animated: Bool, completion:((isPush: Bool)->Void)?) -> UIViewController? {
+		completionHandler = completion
+		return self.popViewControllerAnimated(animated)
 	}
 	
-	func navigationContlroller(navigationController: UINavigationController, animationControllerForOperation operation:UINavigationControllerOperation, fromViewController fromVC: UIViewController, toViewController toVC:UIViewController)->UIViewControllerAnimatedTransitioning?{
+	// MARK: Transition animation
+	
+	func navigationController(navigationController: UINavigationController, animationControllerForOperation operation: UINavigationControllerOperation, fromViewController fromVC: UIViewController, toViewController toVC: UIViewController) -> UIViewControllerAnimatedTransitioning? {
 		if animator == nil {
-			animator = PushAnimator.init(isPush: operation == UINavigationControllerOperation.Push
-			)
+			animator = PushAnimator.init(isPush: operation == UINavigationControllerOperation.Push)
 		}
 		animator?.isInteractive = isInteractive
 		animator?.push = operation == UINavigationControllerOperation.Push
-		return animator
+		return animator!
 	}
 	
-	func navigationController(navigationController: UINavigationController,interactionControllerForAnimationController animationController: UIViewControllerAnimatedTransitioning) -> UIViewControllerInteractiveTransitioning? {
+	func navigationController(navigationController: UINavigationController, interactionControllerForAnimationController animationController: UIViewControllerAnimatedTransitioning) -> UIViewControllerInteractiveTransitioning? {
 		return interactionController
 	}
 	
-	
-	
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
-    }
-    
-
-  	@objc func didPan(panGesture:UIPanGestureRecognizer) {
-		if panGesture.state == .Began {
+	func didPan(panGestureRecognizer: UIPanGestureRecognizer) {
+		
+		if panGestureRecognizer.state == .Began {
+			
 			isInteractive = true
 			animator?.isInteractive = true
 			interactionController = UIPercentDrivenInteractiveTransition()
 			popViewControllerAnimated(true)
-		}else if panGesture.state == .Changed{
-			let translation = panGesture.translationInView(view)
-			let percent = translation.x / CGRectGetWidth(view.bounds)
-			interactionController?.updateInteractiveTransition(percent)
+		}else if panGestureRecognizer.state == .Changed {
 			
-		}else if panGesture.state == .Ended{
-			if panGesture.velocityInView(view).x > 100 {
-				interactionController?.finishInteractiveTransition()
-			}else{
-				interactionController?.cancelInteractiveTransition()
+			let translaton = panGestureRecognizer.translationInView(view)
+			let percent = translaton.x / CGRectGetWidth(view!.bounds)
+			interactionController!.updateInteractiveTransition(percent)
+		}else if panGestureRecognizer.state == .Ended {
+			
+			if panGestureRecognizer.velocityInView(view).x > 100 {
+				interactionController!.finishInteractiveTransition()
+			}else {
+				interactionController!.cancelInteractiveTransition()
 			}
-			
 			interactionController = nil
 			animator?.isInteractive = false
 		}
 	}
 	
-	func gestureRecognizerShouldBegin(gestureRecognizer:UIGestureRecognizer)->Bool{
+	// MARK: UIGestureRecognizerDelegate
+	
+	func gestureRecognizerShouldBegin(gestureRecognizer: UIGestureRecognizer) -> Bool {
 		let location = gestureRecognizer.locationInView(view)
 		if location.y < 64 || location.x > popEdgeInset {
 			return false
 		}
 		return true
 	}
-
+	
+	override func didReceiveMemoryWarning() {
+		super.didReceiveMemoryWarning()
+		// Dispose of any resources that can be recreated.
+	}
+	
+	
+	/*
+	// MARK: - Navigation
+	
+	// In a storyboard-based application, you will often want to do a little preparation before navigation
+	override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
+	// Get the new view controller using segue.destinationViewController.
+	// Pass the selected object to the new view controller.
+	}
+	*/
+	
 }

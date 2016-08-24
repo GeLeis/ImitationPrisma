@@ -60,7 +60,7 @@ class PMDeviceOrientation: NSObject {
 		let x = acceleration.x * scaling
 		let y = acceleration.y * scaling
 		
-		if x < 0.5 {
+		if x < -0.5 {
 			return .LandscapeLeft
 		}
 		

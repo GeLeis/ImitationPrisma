@@ -39,11 +39,12 @@ class PMPhotoHaderView: UIView {
 	
 	override init(frame: CGRect) {
 		super.init(frame: frame)
-		
+		configSubViews()
 	}
 	
 	required init?(coder aDecoder: NSCoder) {
 		super.init(coder: aDecoder)
+		configSubViews()
 	}
 	
 	func configSubViews(){

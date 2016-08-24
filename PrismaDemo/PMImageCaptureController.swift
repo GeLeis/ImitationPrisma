@@ -74,12 +74,7 @@ class PMImageCaptureController: UIViewController{
 			make.width.height.equalTo(75)
 		}
 		
-		navigationBar = UINavigationBar.init()
-		view.addSubview(navigationBar)
-		navigationBar.snp.makeConstraints { (make) in
-			make.height.equalTo(44)
-			make.top.trailing.leading.equalTo(view)
-		}
+		navigationBar = self.navigationController?.navigationBar
 		
 		
 		initNavigationBar()
@@ -111,33 +106,52 @@ class PMImageCaptureController: UIViewController{
 		
     }
 	
+	override func viewWillAppear(animated: Bool) {
+		super.viewWillAppear(animated)
+		session.startRunning()
+		captureButton.enabled = true
+	}
+	
 	func initNavigationBar() {
-		//取出黑线
-		navigationBar.setBackgroundImage(UIImage.init(), forBarMetrics: .Default)
+		// Navigation bar
+		
+		navigationBar = UINavigationBar.init(frame: CGRectMake(0, 20, ScreenSize().width, 44));
+		self.navigationController?.navigationBar.hidden = true
+		view.addSubview(navigationBar);
+		
+		navigationBar.setBackgroundImage(UIImage.init(), forBarPosition: UIBarPosition.Top, barMetrics: UIBarMetrics.Default)
 		navigationBar.shadowImage = UIImage.init()
-		let navigationItem = navigationBar.topItem
 		
 		
-		//flashButton
-		let leftButton  = UIButton.init(type: .System)
-		leftButton.frame = CGRectMake(-10, 0, 44, 44);
-		leftButton.setImage(UIImage.init(named: "flash"), forState: .Normal)
-		leftButton.addTarget(self, action: #selector(self.changeFlash(_:)), forControlEvents: .TouchUpInside)
-		let leftBarItem = UIBarButtonItem.init(customView: leftButton)
-		leftButton.imageEdgeInsets = UIEdgeInsetsMake(0, -10, 0, 10)
-		navigationItem?.leftBarButtonItem = leftBarItem
+		// Flash button
+		let letButton = UIButton.init(type: UIButtonType.Custom)
+		letButton.frame = CGRectMake(15, 0, 44, 44)
+		letButton.setImage(UIImage.init(named: "flash"), forState: UIControlState.Normal)
+		letButton.addTarget(self, action: #selector(self.changeFlash(_:)), forControlEvents: UIControlEvents.TouchUpInside)
 		
-		//camera possion 前后摄像头
+		navigationBar.addSubview(letButton)
+	
+		
+		// Camera possion
 		let image = UIImage.init(named: "flip")
-		let hImage = image?.imageWithColor(UIColor.grayColor())
-		let titleButton = UIButton.init(type: .Custom)
-		titleButton.setImage(image, forState: .Normal)
-		titleButton.setImage(hImage, forState: .Selected)
-		titleButton.setImage(hImage, forState: .Highlighted)
-		titleButton.sizeToFit()
-		titleButton.addTarget(self, action: #selector(self.changeCameraPossion), forControlEvents: .TouchUpInside)
-		navigationItem?.titleView = titleButton
 		
+		//根据图片纹路进行渲染
+		let hImage = image?.imageWithColor(UIColor.lightGrayColor())
+		let titleButton = UIButton.init(type: UIButtonType.Custom)
+		titleButton.frame = CGRectMake(ScreenSize().width * 0.5 - (image?.size.width)! * 0.5, 0, (image?.size.width)!, (image?.size.height)!)
+		titleButton.setImage(image, forState: UIControlState.Normal)
+		titleButton.setImage(hImage, forState: UIControlState.Selected)
+		titleButton.setImage(hImage, forState: UIControlState.Highlighted)
+		titleButton.sizeToFit()
+		titleButton.addTarget(self, action: #selector(self.changeCameraPossion), forControlEvents: UIControlEvents.TouchUpInside)
+		navigationBar.addSubview(titleButton)
+		
+		let imageSetting = UIImage.init(named: "settings")
+		let settingBtn = UIButton.init(type: .Custom)
+		settingBtn.frame = CGRectMake(ScreenSize().width - (imageSetting?.size.width)! - 15, 0, (imageSetting?.size.width)!, (imageSetting?.size.height)!)
+		settingBtn.setBackgroundImage(imageSetting, forState: .Normal)
+		settingBtn.setBackgroundImage(imageSetting?.imageWithColor(UIColor.lightGrayColor()), forState: .Selected)
+		navigationBar.addSubview(settingBtn)
 	}
 	
 	func initAVCapture(){
@@ -182,7 +196,6 @@ class PMImageCaptureController: UIViewController{
 		photoPisplayBoard?.setAVCapturepreviewLayer(previewLayer!)
 		
 	}
-	
 	func changeFlash(sender: AnyObject?){
 		var image: UIImage? = nil
 		let device = AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeVideo)
@@ -260,58 +273,71 @@ class PMImageCaptureController: UIViewController{
 	}
 
 	func capturePhoto(sender:AnyObject) {
+		
+		// Disable the capture button
 		captureButton.enabled = false
 		
 		let stillImageConnection = stillImageOutPut?.connectionWithMediaType(AVMediaTypeVideo)
-		
-		let avCaptureOrientaion = AVCaptureVideoOrientation(rawValue:UIDevice.currentDevice().orientation.rawValue)!
+		//        let curDeviceOrientation = UIDevice.currentDevice().orientation
+		//        let avCaptureOrientation = FMDeviceOrientation.avOrientationFromDeviceOrientation(curDeviceOrientation)
+		let avCaptureOrientation = AVCaptureVideoOrientation(rawValue: UIDevice.currentDevice().orientation.rawValue)!
 		if stillImageConnection!.supportsVideoOrientation {
-			stillImageConnection!.videoOrientation = avCaptureOrientaion
+			stillImageConnection!.videoOrientation = avCaptureOrientation
 		}
 		stillImageConnection!.videoScaleAndCropFactor = 1
 		
-		stillImageOutPut?.captureStillImageAsynchronouslyFromConnection(stillImageConnection, completionHandler: { (imageDataSampleBuffer: CMSampleBuffer!, error: NSError!) in
+		stillImageOutPut?.captureStillImageAsynchronouslyFromConnection(stillImageConnection, completionHandler: { (imageDataSampleBuffer: CMSampleBufferRef!, error: NSError!) in
 			let jpegData = AVCaptureStillImageOutput.jpegStillImageNSDataRepresentation(imageDataSampleBuffer)
 			
-			if var image = UIImage(data: jpegData){
+			if var image = UIImage(data: jpegData) {
+				
+				// Fix orientation & crop image
 				image = image.fixOrientation()
-				image = PMImageManager.cropImageAffterCapture(image, toSize: self.previewLayer!.frame.size)
+				image = PMImageManager.cropImageAffterCapture(image,toSize: self.previewLayer!.frame.size)
+				
+				// Fix interface orientation
 				if !self.orientationManger.deviceOrientationMatchesInterfaceOrientation() {
-					let interfaceOrientaion = self.orientationManger.orientation()
-					image = image.rotateImageFromInterfaceOrientation(interfaceOrientaion)
+					let interfaceOrientation = self.orientationManger.orientation()
+					image = image.rotateImageFromInterfaceOrientation(interfaceOrientation)
 				}
 				
+				// Mirror the image
 				if self.isUsingFrontFacingCamera {
-					image = UIImage.init(CGImage: image.CGImage!, scale: image.scale, orientation: .UpMirrored)
+					image = UIImage.init(CGImage: image.CGImage!, scale: image.scale, orientation: UIImageOrientation.UpMirrored)
+					
 					let imageV = UIImageView.init(frame: self.previewLayer!.bounds)
-					imageV.image = image;
+					imageV.image = image
 					self.view.addSubview(imageV)
 				}
 				
+				// Save photo
 				let authorStatus = ALAssetsLibrary.authorizationStatus()
-				if (authorStatus == ALAuthorizationStatus.Restricted) || (authorStatus == ALAuthorizationStatus.Denied) {
+				if  authorStatus == ALAuthorizationStatus.Restricted || authorStatus == ALAuthorizationStatus.Denied {
 					return
 				}
 				
 				let library = ALAssetsLibrary()
 				if self.isUsingFrontFacingCamera {
-					let attachments = CMCopyDictionaryOfAttachments(kCFAllocatorDefault, imageDataSampleBuffer, kCMAttachmentMode_ShouldPropagate)
-					
-					library.writeImageToSavedPhotosAlbum(image.CGImage, metadata: attachments as? [NSObject:AnyObject], completionBlock: { (url:NSURL!, error:NSError!) in
+					let attachments = CMCopyDictionaryOfAttachments(kCFAllocatorDefault,imageDataSampleBuffer,kCMAttachmentMode_ShouldPropagate)
+					//                    let attachments = CMGetAttachment(imageDataSampleBuffer, kCGImagePropertyExifDictionary, nil)
+					library.writeImageToSavedPhotosAlbum(image.CGImage!, metadata: attachments as? [NSObject:AnyObject] , completionBlock: { (url: NSURL!, error: NSError!) in
 						
 					})
 				}else {
-					library.writeImageToSavedPhotosAlbum(image.CGImage, orientation: ALAssetOrientation.UpMirrored, completionBlock: { (url:NSURL!, error:NSError!) in
+					library.writeImageToSavedPhotosAlbum(image.CGImage, orientation: ALAssetOrientation.UpMirrored, completionBlock: { (url: NSURL!, error: NSError!) in
 						
 					})
 				}
 				
-				self.photoPisplayBoard?.setState(.SingleShow, image: image, selectedRect: CGRectZero, zoomScale: 1, animated: false)
-				let storyBoard = UIStoryboard.init(name: "Main", bundle: nil)
-				let styleVC = storyBoard.instantiateViewControllerWithIdentifier("styleImageController") as? PMImageProcessController
-				styleVC?.fromCapture = true
-				self.navigationController?.pushViewController(styleVC!, animated: true)
+				// Go to style vc
+				self.photoPisplayBoard?.setState(.SingleShow, image: image, selectedRect: CGRectZero, zoomScale:1, animated: false)
+				
+				let styleVC = PMImageProcessController.init()
+				styleVC.fromCapture = true
+				self.navigationController?.pushViewController(styleVC, animated: true)
 			}
+			
+			// Stop session
 			self.session.stopRunning()
 		})
 	}
@@ -445,9 +471,8 @@ class PMImageCaptureController: UIViewController{
 	
 	func imagePickerController(picker: PMImagePickerController, didFinishPickingImage originalImage: UIImage, selectedRect: CGRect, zoomScale: CGFloat) {
 		photoPisplayBoard?.setState(.EditImage, image: originalImage, selectedRect: selectedRect, zoomScale: zoomScale, animated: false)
-		let storyBoard = UIStoryboard.init(name: "Main", bundle: nil)
-		let editVC = storyBoard.instantiateViewControllerWithIdentifier("imageEditController") as? PMImageEditController
-		navigationController?.pushViewController(editVC!, animated: false)
+		let editVC = PMImageEditController.init();
+		navigationController?.pushViewController(editVC, animated: false)
 	}
 	
 	
@@ -470,31 +495,34 @@ class PMImageCaptureController: UIViewController{
 }
 
 class PushAnimator: NSObject,UIViewControllerAnimatedTransitioning {
-	var push:Bool = true
-	var isInteractive:Bool = false
+	
+	var push: Bool = true
+	var isInteractive: Bool = false
+	
 	
 	override init() {
 		super.init()
 	}
 	
-	
-	convenience init(isPush:Bool) {
+	convenience init(isPush: Bool) {
 		self.init()
 		self.push = isPush
 	}
-	
 	
 	func transitionDuration(transitionContext: UIViewControllerContextTransitioning?) -> NSTimeInterval {
 		return kPushDuration
 	}
 	
 	func animateTransition(transitionContext: UIViewControllerContextTransitioning) {
+		
 		let fromViewController = transitionContext.viewControllerForKey(UITransitionContextFromViewControllerKey)
 		let toViewController = transitionContext.viewControllerForKey(UITransitionContextToViewControllerKey)
-		let containView = transitionContext.containerView()
+		let containerView = transitionContext.containerView()
 		
-		containView?.addSubview(fromViewController!.view)
-		containView?.addSubview(toViewController!.view)
+		containerView?.addSubview(fromViewController!.view)
+		containerView?.addSubview(toViewController!.view)
+		toViewController?.view.frame = fromViewController!.view.bounds
+		
 		var fromFrame = fromViewController?.view.frame
 		var toFrame = toViewController?.view.frame
 		let screenWidth = UIScreen.mainScreen().bounds.size.width
@@ -507,32 +535,31 @@ class PushAnimator: NSObject,UIViewControllerAnimatedTransitioning {
 		if push {
 			toFrame?.origin.x = screenWidth
 			toViewController?.view.frame = toFrame!
-			UIView.animateWithDuration(transitionDuration(transitionContext), delay: 0, options: animationOption, animations: { 
+			UIView.animateWithDuration(transitionDuration(transitionContext), delay: 0, options: animationOption, animations: {
 				fromFrame?.origin.x = -screenWidth
 				fromViewController?.view.frame = fromFrame!
 				toFrame?.origin.x = 0
 				toViewController?.view.frame = toFrame!
-				}, completion: { (com:Bool) in
-					let complete  = !transitionContext.transitionWasCancelled()
+				}, completion: { (com: Bool) in
+					let complete = !transitionContext.transitionWasCancelled()
 					if complete {
-						if let nav = fromViewController?.navigationController as? PMNavigationController{
+						if let nav = fromViewController?.navigationController as? PMNavigationController  {
 							if let completion = nav.completionHandler {
-								completion(isPush: false)
+								completion(isPush: true)
 							}
 						}
 					}
-					transitionContext.completeTransition(complete)
-
+					transitionContext.completeTransition(!transitionContext.transitionWasCancelled())
 			})
 		}else {
 			toFrame?.origin.x = -screenWidth
 			toViewController?.view.frame = toFrame!
-			UIView.animateWithDuration(transitionDuration(transitionContext), delay: 0, options: animationOption, animations: { 
-				fromFrame?.origin.x = -screenWidth
+			UIView.animateWithDuration(transitionDuration(transitionContext), delay: 0, options: animationOption, animations: {
+				fromFrame?.origin.x = screenWidth
 				fromViewController?.view.frame = fromFrame!
 				toFrame?.origin.x = 0
 				toViewController?.view.frame = toFrame!
-				}, completion: { (com:Bool) in
+				}, completion: { (com: Bool) in
 					let complete = !transitionContext.transitionWasCancelled()
 					if complete {
 						if let nav = toViewController?.navigationController as? PMNavigationController  {
@@ -544,6 +571,7 @@ class PushAnimator: NSObject,UIViewControllerAnimatedTransitioning {
 					transitionContext.completeTransition(complete)
 			})
 		}
+		
 	}
 }
 
