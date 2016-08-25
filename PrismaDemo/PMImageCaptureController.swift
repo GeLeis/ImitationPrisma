@@ -460,20 +460,7 @@ class PMImageCaptureController: UIViewController{
 		return interestPoint
 	}
 	
-	//MARK: PMimagepickerControllerDelegate
-	func imagePickerControllerDidCancel(picker: PMImagePickerController) {
-		session.startRunning()
-	}
-	
-	func imagePickerController(picker: PMImagePickerController, didFinishPickingImage image: UIImage) {
-		
-	}
-	
-	func imagePickerController(picker: PMImagePickerController, didFinishPickingImage originalImage: UIImage, selectedRect: CGRect, zoomScale: CGFloat) {
-		photoPisplayBoard?.setState(.EditImage, image: originalImage, selectedRect: selectedRect, zoomScale: zoomScale, animated: false)
-		let editVC = PMImageEditController.init();
-		navigationController?.pushViewController(editVC, animated: false)
-	}
+
 	
 	
     override func didReceiveMemoryWarning() {
@@ -575,6 +562,27 @@ class PushAnimator: NSObject,UIViewControllerAnimatedTransitioning {
 	}
 }
 
+
+//
+extension PMImageCaptureController: PMImagePickerControllerDelegate {
+	
+	//MARK: PMimagepickerControllerDelegate
+	func imagePickerControllerDidCancel(picker: PMImagePickerController) {
+		session.startRunning()
+	}
+	
+	func imagePickerController(picker: PMImagePickerController, didFinishPickingImage image: UIImage) {
+		
+	}
+	
+	func imagePickerController(picker: PMImagePickerController, didFinishPickingImage originalImage: UIImage, selectedRect: CGRect, zoomScale: CGFloat) {
+		photoPisplayBoard?.setState(.EditImage, image: originalImage, selectedRect: selectedRect, zoomScale: zoomScale, animated: false)
+		let editVC = PMImageEditController.init();
+		navigationController?.pushViewController(editVC, animated: false)
+	}
+}
+
+
 extension UIBarButtonItem {
 	var highlighted: Bool{
 		set {
@@ -592,9 +600,6 @@ extension UIBarButtonItem {
 	}
 }
 
-extension PMImageCaptureController: PMImagePickerControllerDelegate {
-
-}
 
 extension UIViewController {
 	var photoPisplayBoard: PMImageProtocol? {

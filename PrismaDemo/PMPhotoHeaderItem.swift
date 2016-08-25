@@ -47,8 +47,8 @@ class PMPhotoHeaderItem: UIScrollView,UIScrollViewDelegate {
 		bounces = true
 		alwaysBounceVertical = true
 		alwaysBounceHorizontal = true
-		showsVerticalScrollIndicator = true
-		showsHorizontalScrollIndicator = true
+		showsVerticalScrollIndicator = false
+		showsHorizontalScrollIndicator = false
 		
 		imageContarinerView.frame = bounds
 		imageContarinerView.clipsToBounds = true

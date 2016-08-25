@@ -18,32 +18,36 @@ class PMImageGroupCell: UITableViewCell {
 		super.init(style: style, reuseIdentifier: reuseIdentifier)
 		groupCover = UIImageView.init()
 		weak var weakSelf = self
+		addSubview(groupCover)
 		groupCover.snp.makeConstraints { (make) in
 			make.width.height.equalTo(79)
 			make.centerY.equalTo(weakSelf!)
 			make.left.equalTo(weakSelf!).offset(14)
 		}
 		
-		addSubview(groupCover)
+		
 		
 		
 		groupTitle = UILabel.init()
 		groupTitle.font = UIFont.systemFontOfSize(17)
 		groupTitle.textColor = UIColor.blackColor()
+		addSubview(groupTitle)
 		groupTitle.snp.makeConstraints { (make) in
 			make.bottom.equalTo(weakSelf!.groupCover.snp.centerY).offset(-2)
 			make.left.equalTo(weakSelf!.groupCover.snp.right).offset(10)
 		}
-		addSubview(groupTitle)
+		
 		
 		groupContent = UILabel.init()
 		groupContent.font = UIFont.systemFontOfSize(14)
-		groupTitle.textColor = UIColor.blackColor()
-		groupTitle.snp.makeConstraints { (make) in
+		groupContent.textColor = UIColor.blackColor()
+		
+		addSubview(groupContent)
+		groupContent.snp.makeConstraints { (make) in
 			make.top.equalTo(weakSelf!.groupCover.snp.centerY).offset(2)
 			make.left.equalTo(weakSelf!.groupCover.snp.right).offset(10)
 		}
-		addSubview(groupContent)
+		
 		
 		selectedBackgroundView = UIView.init(frame: self.bounds)
 		selectedBackgroundView?.backgroundColor = UIColor.init(white: 0.85, alpha: 1)

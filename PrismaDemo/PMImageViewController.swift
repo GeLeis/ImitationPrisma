@@ -59,25 +59,26 @@ class PMImageViewController: UIViewController {
 		
 		configMianView()
 		
-		
+		getPhotos()
 		
     }
 	
 	override func viewWillAppear(animated: Bool) {
 		super.viewWillAppear(animated)
-		getPhotos()
+		
 	}
+	
+
 	
 	func configMianView() {
 		
 		weak var weakSelf = self
 		
 		displayHeader = PMPhotoHaderView.init(frame: CGRectMake(0, 0, screenSize.width, screenSize.width))
-		displayHeader.backgroundColor = UIColor.greenColor()
 		displayHeader.tapAction = { (view:PMPhotoHaderView)  in
 			weakSelf?.dropDownHeader(false)
 		}
-		self.view.addSubview(displayHeader)
+		view.insertSubview(displayHeader, belowSubview: navigatioBar)
 		displayHeader.snp.makeConstraints { (make) in
 			make.size.equalTo(CGSizeMake(weakSelf!.screenSize.width, weakSelf!.screenSize.width))
 			make.centerX.equalTo(weakSelf!.view)
@@ -112,7 +113,7 @@ class PMImageViewController: UIViewController {
 		self.navigationController?.navigationBar.hidden = true
 		view.addSubview(navigatioBar);
 		
-		navigatioBar.setBackgroundImage(UIImage.init(), forBarPosition: UIBarPosition.Top, barMetrics: UIBarMetrics.Default)
+		navigatioBar.setBackgroundImage(UIImage.imageWithColor(UIColor.whiteColor(), size: CGSizeMake(screenSize.width, constParams.headerTopInset)), forBarPosition: UIBarPosition.Top, barMetrics: UIBarMetrics.Default)
 		navigatioBar.shadowImage = UIImage.init()
 		
 		
@@ -237,17 +238,18 @@ class PMImageViewController: UIViewController {
 		
 		let navigationController = self.pmNavigationController
 		let responsOriginal = navigationController?.pmDelegate?.respondsToSelector(#selector(PMImagePickerControllerDelegate.imagePickerController(_:didFinishPickingImage:selectedRect:zoomScale:)))
-		
 		if (responsOriginal != nil) {
+			// Not crop the image just call delegate with original image
 			let zoomScale = displayHeader.imageView.zoomScale
-			navigationController?.pmDelegate?.imagePickerController!(navigationController!, didFinishPickingImage: finalImage, selectedRect: imageRect, zoomScale: zoomScale)
+			navigationController?.pmDelegate?.imagePickerController!(navigationController!, didFinishPickingImage: finalImage, selectedRect: imageRect, zoomScale:zoomScale)
 		}else {
+			// Get the final cropped image
 			finalImage = PMImageManager.cropImageToRect(finalImage, toRect: imageRect)
-			
+			// Call delegate
 			navigationController?.pmDelegate?.imagePickerController?(navigationController!, didFinishPickingImage: finalImage)
 		}
 		
-		dismissViewControllerAnimated(true) { 
+		dismissViewControllerAnimated(true) {
 			
 		}
 	}
@@ -262,12 +264,12 @@ class PMImageViewController: UIViewController {
 			var frame = CGRectMake(0, screenSize.height, screenSize.width, screenSize.height)
 			let groupVC = PMImageGroupController.init()
 			groupVC.photoGroups = photoGroups
-			groupVC.view.frame = frame
+			groupVC.view.frame = frame 
 			view.addSubview(groupVC.view)
 			self.addChildViewController(groupVC)
 			
 			UIView.animateWithDuration(constParams.presentGroupAnimationDuration, delay: 0, options: .CurveLinear, animations: { 
-				frame.origin.y = 0
+				frame.origin.y = 43
 				groupVC.view.frame = frame
 				arrow?.transform = CGAffineTransformMakeRotation(CGFloat(M_PI - 0.01))
 				self.navigationItem.leftBarButtonItem?.customView?.alpha = 0
@@ -333,65 +335,63 @@ class PMImageViewController: UIViewController {
 	}
 	
 	func dropDownHeader(selectedItem: Bool) {
-		//如果是选中照片后下拉headerView
 		if selectedItem {
-			//已经在顶部
-			if headerTopConstant == CGFloat(0) {
+			if headerTopConstant == 0 {
 				if let cell = albumCollection.cellForItemAtIndexPath(NSIndexPath.init(forItem: selectedIndex, inSection: 0)) {
 					albumCollection.scrollRectToVisible(cell.frame, animated: true)
 				}else {
 					albumCollection.setContentOffset(CGPointMake(0, 0), animated: true)
 				}
-				//不在顶部
 			}else {
 				var cellFrame = CGRectZero
 				if let cell = albumCollection.cellForItemAtIndexPath(NSIndexPath.init(forItem: selectedIndex, inSection: 0)) {
 					cellFrame = cell.frame
 				}
-				
 				let cellFrameToHeader = displayHeader.convertRect(cellFrame, fromView: albumCollection)
-				let linespace = (albumCollection.collectionViewLayout as? UICollectionViewFlowLayout)?.minimumLineSpacing
+				let lineSpace = (albumCollection.collectionViewLayout as? UICollectionViewFlowLayout)?.minimumLineSpacing
 				let moveDistance = -headerTopConstant
 				var contentOffset = albumCollection.contentOffset
-				let adjustDistance = (displayHeader.bounds.size.height + moveDistance + linespace!) -  CGRectGetMinY(cellFrameToHeader)
+				let adjustDistance = (displayHeader.bounds.size.height + moveDistance + lineSpace!) - CGRectGetMinY(cellFrameToHeader)
 				
 				contentOffset.y += moveDistance
 				if adjustDistance > 0 {
 					contentOffset.y -= adjustDistance
 				}
 				
+				self.headerTopConstant = 0
+				self.albumCollection.contentOffset = contentOffset
+				
 				self.view.setNeedsUpdateConstraints()
 				self.view.updateConstraintsIfNeeded()
 				
-				UIView.animateWithDuration(constParams.moveHeaderAnimationDuration, delay: 0, options: .CurveLinear, animations: { 
-					self.headerTopConstant = 0
+				UIView.animateWithDuration(constParams.moveHeaderAnimationDuration, delay: 0, options: UIViewAnimationOptions.CurveLinear, animations: {
+					// Tip: set `contentOffset` must after set constant of `headerTopConstraints`, otherwise it will not be effect
+					// Also should call `setNeedsLayout` & `layoutIfNeeded` to ensure the animation of collection view, because the cells above the selected cell will be hidden or remove during the animation when we don't call `layoutSubViews` of the collection
+					
 					self.view.layoutIfNeeded()
-					self.albumCollection.contentOffset = contentOffset
 					self.albumCollection.setNeedsLayout()
 					self.albumCollection.layoutIfNeeded()
-					}, completion: { (com:Bool) in
+					}, completion: { (com: Bool) in
 						
 				})
 			}
-			
-			
 		}else {
 			guard -headerTopConstant == (screenSize.width - constParams.headerTopInset) else {
 				return
 			}
-			var contentOffset  = albumCollection.contentOffset
+			var contentOffset = albumCollection.contentOffset
 			let moveDistance = -headerTopConstant
 			contentOffset.y += moveDistance
 			
+			self.albumCollection.contentOffset = contentOffset
+			self.headerTopConstant = 0
+			
 			self.view.setNeedsUpdateConstraints()
 			self.view.updateConstraintsIfNeeded()
-			
-			UIView.animateWithDuration(constParams.moveHeaderAnimationDuration, animations: {
-				self.albumCollection.contentOffset = contentOffset
-				self.headerTopConstant = 0
+			UIView.animateWithDuration(constParams.moveHeaderAnimationDuration) {
+				
 				self.view.layoutIfNeeded()
-			})
-			
+			}
 		}
 	}
 	
@@ -406,12 +406,13 @@ class PMImageViewController: UIViewController {
 		super.updateViewConstraints()
 	}
 	
+	
+	
 	override func prefersStatusBarHidden() -> Bool {
 		return true
 	}
 	
 	func scrollViewDidPan(panGestureRecognizer: UIPanGestureRecognizer) {
-		
 		let velocity = panGestureRecognizer.velocityInView(albumCollection)
 		let tramslation = panGestureRecognizer.translationInView(view)
 		let location = panGestureRecognizer.locationInView(displayHeader)
@@ -427,7 +428,7 @@ class PMImageViewController: UIViewController {
 				shouldMoveHeaderUp = location.y < displayHeader!.bounds.size.height && headerTopConstant > -(screenSize.width - constParams.headerTopInset)
 				if shouldMoveHeaderUp {
 					contentOffset = albumCollection.contentOffset
-					panGestureRecognizer.setTranslation(CGPointMake(tramslation.x, 0), inView: view)
+					panGestureRecognizer.setTranslation(CGPointMake(0, 0), inView: view)
 				}
 				break;
 			case .Changed:
@@ -445,6 +446,17 @@ class PMImageViewController: UIViewController {
 						headerTopConstant = -(screenSize.width - constParams.headerTopInset)
 						isHeaderMoving = false
 					}
+					
+					self.view.setNeedsUpdateConstraints()
+					self.view.updateConstraintsIfNeeded()
+					UIView.animateWithDuration(0.1, delay: 0, options: [UIViewAnimationOptions.AllowUserInteraction, UIViewAnimationOptions.CurveLinear], animations: {
+						
+						self.view.layoutIfNeeded()
+						}, completion: { (finish: Bool) in
+							
+					})
+					
+					
 				}else {
 					shouldMoveHeaderUp = touchHeaderBottom && headerTopConstant > -(screenSize.width - constParams.headerTopInset)
 					if shouldMoveHeaderUp {
@@ -465,16 +477,22 @@ class PMImageViewController: UIViewController {
 					if shouldAnimationToTop {
 						let distance = screenSize.width - (constParams.headerTopInset + constParams.minMoveDistance)
 						let duration = CFTimeInterval((distance + (constParams.minMoveDistance + headerTopConstant))/distance) * constParams.moveHeaderAnimationDuration
-						
+						self.headerTopConstant = -(self.screenSize.width - self.constParams.headerTopInset)
+						self.view.setNeedsUpdateConstraints()
+						self.view.updateConstraintsIfNeeded()
 						UIView.animateWithDuration(duration, delay: 0, options: [UIViewAnimationOptions.AllowUserInteraction, UIViewAnimationOptions.CurveLinear], animations: {
-							self.headerTopConstant = -(self.screenSize.width - self.constParams.headerTopInset)
+							
 							self.view.layoutIfNeeded()
 							}, completion: { (finish: Bool) in
 								
 						})
 					}else {
+						self.headerTopConstant = 0
+						self.view.setNeedsUpdateConstraints()
+						self.view.updateConstraintsIfNeeded()
+						
 						UIView.animateWithDuration(self.constParams.backHeaderAnimationDuration, delay: 0, options: [UIViewAnimationOptions.AllowUserInteraction, UIViewAnimationOptions.CurveLinear], animations: {
-							self.headerTopConstant = 0
+							
 							self.view.layoutIfNeeded()
 							}, completion: { (finish: Bool) in
 								
@@ -536,18 +554,22 @@ class PMImageViewController: UIViewController {
 					if shouldAnimationToBottom {
 						let distance = screenSize.width - (constParams.minMoveDistance + constParams.headerTopInset)
 						let duration = CFTimeInterval((-headerTopConstant)/distance) * constParams.moveHeaderAnimationDuration
-						
+						self.headerTopConstant = 0
+						self.view.setNeedsUpdateConstraints()
+						self.view.updateConstraintsIfNeeded()
 						UIView.animateWithDuration(duration, delay: 0, options: [UIViewAnimationOptions.AllowUserInteraction, UIViewAnimationOptions.CurveLinear], animations: {
-							self.headerTopConstant = 0
+							
 							self.view.layoutIfNeeded()
 							}, completion: { (finish: Bool) in
 								
 						})
 						
 					}else {
-						
+						self.headerTopConstant = -(self.screenSize.width - self.constParams.headerTopInset)
+						self.view.setNeedsUpdateConstraints()
+						self.view.updateConstraintsIfNeeded()
 						UIView.animateWithDuration(constParams.backHeaderAnimationDuration, delay: 0, options: [UIViewAnimationOptions.AllowUserInteraction, UIViewAnimationOptions.CurveLinear], animations: {
-							self.headerTopConstant = -(self.screenSize.width - self.constParams.headerTopInset)
+							
 							self.view.layoutIfNeeded()
 							}, completion: { (finish: Bool) in
 								
@@ -600,7 +622,6 @@ extension PMImageViewController: UICollectionViewDelegate,UICollectionViewDataSo
 	}
 	
 	func collectionView(collectionView: UICollectionView, didSelectItemAtIndexPath indexPath: NSIndexPath) {
-		print("\(self.displayHeader.frame)")
 		guard indexPath.item != selectedIndex else {
 			return
 		}
@@ -613,12 +634,12 @@ extension PMImageViewController: UICollectionViewDelegate,UICollectionViewDataSo
 		selectedIndex = indexPath.item
 		dropDownHeader(true)
 		
-		PMImageManager.imageFromAsset(photoAssets![indexPath.item], isOriginal: true, toSize: nil) { (image:UIImage?) in
+		// Set image
+		PMImageManager.imageFromAsset(photoAssets![indexPath.item], isOriginal: true, toSize: nil, resultHandler: { (image: UIImage?) in
 			if let _image = image {
-				self.displayHeader.setImage(_image, scrollToRect: CGRectZero, zoomScale: 1)
+				self.displayHeader.setImage(_image, scrollToRect: CGRectZero, zoomScale:1)
 			}
-		}
-		
+		})
 	}
 	
 }
@@ -628,15 +649,16 @@ protocol UIScrollViewPanGestureRecognizer {
 }
 
 extension UIScrollView {
-	public override static func initialize(){
+	public override static func initialize() {
 		struct Static {
 			static var token: dispatch_once_t = 0
 		}
 		
+		// Make sure not subclass
 		if self !== UIScrollView.self {
-			
 			return
 		}
+		
 		
 		dispatch_once(&Static.token) {
 			let originalSelector = NSSelectorFromString("handlePan:")
@@ -646,21 +668,19 @@ extension UIScrollView {
 			let swizzledMethod = class_getInstanceMethod(self, swizzledSelector)
 			
 			let didAddMethod = class_addMethod(self, originalSelector, method_getImplementation(swizzledMethod), method_getTypeEncoding(swizzledMethod))
-			//如果添加成功，则替换实现imp
+			
 			if didAddMethod {
 				class_replaceMethod(self, swizzledSelector, method_getImplementation(originalMethod), method_getTypeEncoding(originalMethod))
-			}else {
-				//添加不成功就交换
-				method_exchangeImplementations(originalMethod, swizzledMethod)
+			} else {
+				method_exchangeImplementations(originalMethod, swizzledMethod);
 			}
 		}
 	}
 	
-	
-	
-	func pm_handle(pan:UIPanGestureRecognizer) {
+	// MARK: - Method Swizzling
+	func pm_handlePan(pan: UIPanGestureRecognizer) {
+		pm_handlePan(pan)
 		
-		pm_handle(pan)
 		if delegate != nil && delegate!.respondsToSelector(NSSelectorFromString("scrollViewDidPan:")) {
 			delegate?.performSelector(NSSelectorFromString("scrollViewDidPan:"), withObject: pan)
 		}

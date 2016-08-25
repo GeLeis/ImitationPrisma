@@ -22,6 +22,8 @@ class PMImageGroupController: UIViewController {
 		tableView = UITableView.init(frame: view.frame, style: .Plain)
 		tableView.delegate = self
 		tableView.dataSource = self
+		tableView.registerClass(PMImageGroupCell.self, forCellReuseIdentifier: "kgroupCellId")
+		tableView.separatorStyle = .None
 		view.addSubview(tableView)
         edgesForExtendedLayout = .None
 		automaticallyAdjustsScrollViewInsets = false
@@ -72,6 +74,7 @@ extension PMImageGroupController: UITableViewDelegate,UITableViewDataSource{
 	
 	func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
 		let cell = tableView.dequeueReusableCellWithIdentifier("kgroupCellId", forIndexPath: indexPath) as! PMImageGroupCell
+
 		let groupModel = groups[indexPath.item]
 		cell.configGroupCell(groupModel)
 		
